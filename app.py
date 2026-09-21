@@ -34,9 +34,9 @@ def format_signal(data):
 def health():
     return jsonify({"ok": True, "service": "TradingView Telegram Bot"})
 
-@app.post("/webhook")
-def webhook():
-    if WEBHOOK_SECRET and request.headers.get("X-Webhook-Secret", "") != WEBHOOK_SECRET:
+@app.post("/webhook/<secret>")
+def webhook(secret):
+    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
