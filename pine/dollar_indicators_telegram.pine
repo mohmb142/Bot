@@ -1,0 +1,79 @@
+//@version=5
+indicator("@dollar_Indicators  (Ultra Fast) + Telegram Alerts", overlay=true)
+
+// Original indicator logic — unchanged
+bgcolor(color.black)
+_hma20 = ta.hma(close, 20)
+plot(_hma20, color=color.white, title="HMA 20", linewidth=2)
+_emaVal = ta.ema(close, 20)
+plot(_emaVal, color=color.yellow, title="EMA 20", linewidth=1)
+_velocity = close - close[5]
+_acceleration = _velocity - _velocity[1]
+_atr14 = ta.atr(14)
+_normAcc = _acceleration / _atr14
+_cS_raw = ta.crossover(_normAcc, 0.3) and close > open
+_pS_raw = ta.crossunder(_normAcc, -0.3) and close < open
+var int _cld = 0
+bool _cC = false
+bool _pC = false
+if _cld <= 0
+    if _cS_raw
+        _cC := true
+        _cld := 5
+    else if _pS_raw
+        _pC := true
+        _cld := 5
+else
+    _cld := _cld - 1
+bool _dW_C = _cC[1] and close > open
+bool _dW_P = _pC[1] and close < open
+bool _iDW = _dW_C or _dW_P
+bool _dL_C = _cC[1] and close <= open
+bool _dL_P = _pC[1] and close >= open
+bool _mW_C = _dL_C[1] and close > open
+bool _mW_P = _dL_P[1] and close < open
+bool _iMW = _mW_C or _mW_P
+bool _mL_C = _dL_C[1] and close <= open
+bool _mL_P = _dL_P[1] and close >= open
+bool _iLF = _mL_C or _mL_P
+bool _iW = _iDW or _iMW
+int _lb = 300
+bool _iWd = (last_bar_index - bar_index) <= _lb
+_aV = ta.atr(14)
+_bG = _aV * 0.65
+plotshape(_iWd and _cC ? low - _bG : na, title="B_B", style=shape.labelup, location=location.absolute, color=color.new(#089981, 0), text="BUY", textcolor=color.white, size=size.normal)
+plotshape(_iWd and _pC ? high + _bG : na, title="S_B", style=shape.labeldown, location=location.absolute, color=color.new(#f23645, 0), text="SELL", textcolor=color.white, size=size.normal)
+plotchar(_iWd and _iW, title="W_T", char='✔️', location=location.abovebar, color=color.green, size=size.small)
+plotchar(_iWd and _iLF, title="L_C", char='✖️', location=location.abovebar, color=color.red, size=size.small)
+var table _tB = table.new(position.top_right, 2, 6, border_width=2, border_color=color.new(color.gray, 50), bgcolor=color.new(#000000, 0))
+if barstate.islast
+    table.cell(_tB, 0, 4, " Telegram Channel :", text_color=color.white, text_halign=text.align_left, text_size=size.normal)
+    table.cell(_tB, 1, 4, "@Dollar701 ", text_color=color.white, text_halign=text.align_right, text_size=size.normal)
+    table.cell(_tB, 0, 5, "✈️ Admin :", text_color=#38bdf8, text_halign=text.align_left, text_size=size.normal)
+    table.cell(_tB, 1, 5, "@Dol701", text_color=#38bdf8, text_halign=text.align_right, text_size=size.normal)
+
+// Telegram alert layer only. It does not change the signal logic above.
+varip bool _alertBuySent = false
+varip bool _alertSellSent = false
+if barstate.isnew
+    _alertBuySent := false
+    _alertSellSent := false
+if _iWd and _cC and not _alertBuySent
+    alert('{"event":"signal","side":"BUY","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period + '","price":"' + str.tostring(close, format.mintick) + '"}', alert.freq_once_per_bar)
+    _alertBuySent := true
+if _iWd and _pC and not _alertSellSent
+    alert('{"event":"signal","side":"SELL","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period + '","price":"' + str.tostring(close, format.mintick) + '"}', alert.freq_once_per_bar)
+    _alertSellSent := true
+if barstate.isconfirmed
+    if _alertBuySent
+        if _cC
+            alert('{"event":"confirmed","side":"BUY","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period + '","price":"' + str.tostring(close, format.mintick) + '"}', alert.freq_once_per_bar_close)
+        else
+            alert('{"event":"cancelled","side":"BUY","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period + '","price":"' + str.tostring(close, format.mintick) + '"}', alert.freq_once_per_bar_close)
+        _alertBuySent := false
+    if _alertSellSent
+        if _pC
+            alert('{"event":"confirmed","side":"SELL","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period + '","price":"' + str.tostring(close, format.mintick) + '"}', alert.freq_once_per_bar_close)
+        else
+            alert('{"event":"cancelled","side":"SELL","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period + '","price":"' + str.tostring(close, format.mintick) + '"}', alert.freq_once_per_bar_close)
+        _alertSellSent := false
